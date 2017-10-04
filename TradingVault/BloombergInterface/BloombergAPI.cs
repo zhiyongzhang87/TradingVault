@@ -108,7 +108,7 @@ namespace BloombergInterface
                 if (!isSessionRunning)
                 {
                     isSessionRunning = true;
-                    mBbgMsgWorker = new System.Threading.Thread(process_bbg_event);
+                    mBbgMsgWorker = new System.Threading.Thread(ProcessBbgEvent);
                     mBbgMsgWorker.Start();
                 }
             }
@@ -246,55 +246,57 @@ namespace BloombergInterface
                         + " from " + argvTask.mStartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss") + " to " + argvTask.mEndTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss")));
         }
 
-        public void SubscribeMktData(Dictionary<string, ApiTaskRealtime> argv_tasks)
+        public void SubscribeMktData(Dictionary<string, ApiTaskRealtime> argvTasks)
         {
-            List<Subscription> temp_newTask = new List<Subscription>();
-            foreach (string temp_ticker in argv_tasks.Keys)
+            Guid tIdGenerator = Guid.NewGuid();
+            List<Subscription> tNewTask = new List<Subscription>();
+            foreach (string tTicker in argvTasks.Keys)
             {
-                if (!mSubscriptions.ContainsKey(temp_ticker))
+                if (!mSubscriptions.ContainsKey(tTicker))
                 {
-                    CorrelationID temp_id = new CorrelationID(temp_ticker + " GSG1900");
-                    t_correlationID.Add(temp_id.Object.ToString());
-                    List<string> temp_fields = argv_tasks[temp_ticker].getFieldList().ToList();
-                    List<string> temp_options = new List<string>();
-                    temp_options.Add("interval=" + argv_tasks[temp_ticker].t_subscription_interval.ToString());
-                    Bloomberglp.Blpapi.Subscription temp_sub = new Subscription(temp_ticker, temp_fields, temp_options, temp_id);
-                    t_subscriptions.Add(temp_ticker, temp_sub);
-                    temp_newTask.Add(temp_sub);
-                    t_mktData.Add(temp_ticker, new BBGData(temp_ticker));
-                    t_tradingDates.Add(temp_ticker, DateTime.Today.ToString("yyyy-MM-dd"));
+                    string tUniqueId = Convert.ToBase64String(g.ToByteArray());
+                    CorrelationID tCorrelationId = new CorrelationID(tTicker + "@" + tUniqueId);
+                    mCorrelationID.Add(tCorrelationId.Object.ToString());
+                    List<string> tFields = argvTasks[tTicker].GetFieldList().ToList();
+                    List<string> tOptions = new List<string>();
+                    tOptions.Add("interval=" + argvTasks[tTicker].mDataDeliverInterval.ToString());
+                    Bloomberglp.Blpapi.Subscription tSubscription = new Subscription(tTicker, tFields, tOptions, tCorrelationId);
+                    mSubscriptions.Add(tTicker, tSubscription);
+                    tNewTask.Add(tSubscription);
+                    mMktData.Add(tTicker, new BloombergData(tTicker));
+                    mTradingDates.Add(tTicker, DateTime.Today.ToString("yyyy-MM-dd"));
                 }
             }
 
-            session.Subscribe(temp_newTask);
+            mSession.Subscribe(tNewTask);
         }
 
-        private void process_bbg_event()
+        private void ProcessBbgEvent()
         {
-            BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, ("Listening to event...")));
+            mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, ("Listening to event...")));
             // Now we can process the incoming Events
-            while (is_session_running)
+            while (isSessionRunning)
             {
                 // Grab the next Event object
-                Event eventObject = session.NextEvent(100);
+                Event eventObject = mSession.NextEvent(100);
                 // If this event type is SUBSCRIPTION_STATUS then process the messages
                 if (eventObject.Count() > 0)
                 {
-                    t_msgCounter++;
+                    mMsgCounter++;
                     // If this event type is PARTIAL_RESPONSE/RESPONSE then process the messages
                     if (eventObject.Type == Event.EventType.PARTIAL_RESPONSE || eventObject.Type == Event.EventType.RESPONSE)
                     {
-                        process_response(eventObject);
+                        ProcessRequestResponse(eventObject);
                     } // End if event type is SUBSCRIPTION_DATA
                     // If this event type is SESSION_STATUS then process the messages
                     else if (eventObject.Type == Event.EventType.SESSION_STATUS)
                     {
-                        process_session_status(eventObject);
+                        ProcessSessionStatusChange(eventObject);
                     } // End if event type is SESSION_STATUS
                     // If this event type is SERVICE_STATUS then process the messages
                     else if (eventObject.Type == Event.EventType.SERVICE_STATUS)
                     {
-                        process_session_status(eventObject);
+                        ProcessSessionStatusChange(eventObject);
                     } // End if event type is SERVICE_STATUS
                     // If this event type is SUBSCRIPTION_DATA then process the messages
                     else if (eventObject.Type == Event.EventType.SUBSCRIPTION_DATA)
@@ -308,219 +310,219 @@ namespace BloombergInterface
                     } // End if event type is SUBSCRIPTION_STATUS
                     else
                     {
-                        BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "New event " + eventObject.Type.ToString()));
+                        mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "New event " + eventObject.Type.ToString()));
                         // Loop over all of the messages in this Event
                         foreach (Bloomberglp.Blpapi.Message msg in eventObject)
                         {
-                            BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Error, msg.ToString()));
+                            mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Error, msg.ToString()));
                         }
                     } // End if event type is unknown events
                 }
             } // end while not done
         }
 
-        private void process_session_status(Bloomberglp.Blpapi.Event par_event)
+        private void ProcessSessionStatusChange(Bloomberglp.Blpapi.Event argvEvent)
         {
-            foreach (Bloomberglp.Blpapi.Message msg in par_event)
+            foreach (Bloomberglp.Blpapi.Message msg in argvEvent)
             {
-                BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, msg.ToString()));
+                mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, msg.ToString()));
 
                 if (msg.MessageType == Bloomberglp.Blpapi.Name.FindName("SessionTerminated") || msg.MessageType == Bloomberglp.Blpapi.Name.FindName("SessionConnectionDown"))
                 {
-                    is_session_running = false;
-                    BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.LoginFail, msg.ToString()));
+                    isSessionRunning = false;
+                    mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.LoginFail, msg.ToString()));
                     Environment.Exit(0);
                 }
 
                 if (msg.MessageType == Bloomberglp.Blpapi.Name.FindName("SessionStarted"))
                 {
-                    is_session_running = true;
-                    BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.LoginSuccess, "LoginSuccess"));
+                    isSessionRunning = true;
+                    mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.LoginSuccess, "LoginSuccess"));
                 }
             }
         }
 
-        private void process_response(Bloomberglp.Blpapi.Event par_event)
+        private void ProcessRequestResponse(Bloomberglp.Blpapi.Event argvEvent)
         {
             // Loop over all of the messages in this Event
-            foreach (Bloomberglp.Blpapi.Message msg in par_event)
+            foreach (Bloomberglp.Blpapi.Message tMsg in argvEvent)
             {
-                Bloomberglp.Blpapi.Element temp_element_msg = msg.AsElement;
+                Bloomberglp.Blpapi.Element tElementMsg = tMsg.AsElement;
                 //printMessage("New message : " + temp_element_msg.ToString());
-                if (msg.MessageType.Equals(new Bloomberglp.Blpapi.Name("HistoricalDataResponse")))
+                if (tMsg.MessageType.Equals(new Bloomberglp.Blpapi.Name("HistoricalDataResponse")))
                 {
-                    this.process_historicalDataResponse(temp_element_msg);
+                    this.ProcessHistoricalDataResponse(tElementMsg);
                 }
-                else if (msg.MessageType.Equals(new Bloomberglp.Blpapi.Name("IntradayTickResponse")))
+                else if (tMsg.MessageType.Equals(new Bloomberglp.Blpapi.Name("IntradayTickResponse")))
                 {
                     //BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, msg.ToString()));
-                    this.process_intradayTickResponse(temp_element_msg);
+                    this.process_intradayTickResponse(tElementMsg);
                 }
-                else if (msg.MessageType.Equals(new Bloomberglp.Blpapi.Name("IntradayBarResponse")))
+                else if (tMsg.MessageType.Equals(new Bloomberglp.Blpapi.Name("IntradayBarResponse")))
                 {
                     //BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, msg.ToString()));
-                    this.process_intradayBarResponse(temp_element_msg);
+                    this.process_intradayBarResponse(tElementMsg);
                 }
-                else if (msg.MessageType.Equals(new Bloomberglp.Blpapi.Name("ReferenceDataResponse")))
+                else if (tMsg.MessageType.Equals(new Bloomberglp.Blpapi.Name("ReferenceDataResponse")))
                 {
                     //BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, msg.ToString()));
-                    this.Process_Reference_Data_Response(temp_element_msg);
+                    this.Process_Reference_Data_Response(tElementMsg);
                 }
                 else
                 {
-                    BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, msg.ToString()));
+                    mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, tMsg.ToString()));
                 }
             }
         }
 
-        private void process_historicalDataResponse(Bloomberglp.Blpapi.Element argv_element)
+        private void ProcessHistoricalDataResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argv_element.HasElement("responseError"))
+            if (argvElement.HasElement("responseError"))
             {
-                Bloomberglp.Blpapi.Element temp_responseErrorArray = argv_element.GetElement("responseError");
-                List<Bloomberglp.Blpapi.Element> temp_responseErrorList = convertElementArrayToList(temp_responseErrorArray);
-                for (int i = 0; i < temp_responseErrorList.Count; i++)
+                Bloomberglp.Blpapi.Element tResponseErrorArray = argvElement.GetElement("responseError");
+                List<Bloomberglp.Blpapi.Element> tResponseErrorList = convertElementArrayToList(tResponseErrorArray);
+                for (int i = 0; i < tResponseErrorList.Count; i++)
                 {
-                    Bloomberglp.Blpapi.Element temp_responseError = temp_responseErrorList.ElementAt(i);
-                    BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "Message error: " + temp_responseError.GetElementAsString("message") + ", " + temp_responseError.GetElementAsString("subcategory")));
+                    Bloomberglp.Blpapi.Element tResponseError = tResponseErrorList.ElementAt(i);
+                    mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Message error: " + tResponseError.GetElementAsString("message") + ", " + tResponseError.GetElementAsString("subcategory")));
                 }
             }
 
-            if (argv_element.HasElement("securityData"))
+            if (argvElement.HasElement("securityData"))
             {
                 //printMessage("Parsing securityData...");
-                Bloomberglp.Blpapi.Element temp_securityDataArray = argv_element.GetElement("securityData");
-                List<Bloomberglp.Blpapi.Element> temp_securityDataList = convertElementArrayToList(temp_securityDataArray);
-                for (int i = 0; i < temp_securityDataList.Count; i++)
+                Bloomberglp.Blpapi.Element tSecurityDataArray = argvElement.GetElement("securityData");
+                List<Bloomberglp.Blpapi.Element> tSecurityDataList = convertElementArrayToList(tSecurityDataArray);
+                for (int i = 0; i < tSecurityDataList.Count; i++)
                 {
-                    Bloomberglp.Blpapi.Element temp_securityData = temp_securityDataList.ElementAt(i);
-                    if (temp_securityData.HasElement("security"))
+                    Bloomberglp.Blpapi.Element tSecurityData = tSecurityDataList.ElementAt(i);
+                    if (tSecurityData.HasElement("security"))
                     {
                         //Ticker
-                        string temp_ticker = temp_securityData.GetElementAsString("security");
-                        BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "Ticker is " + temp_ticker));
+                        string tTicker = tSecurityData.GetElementAsString("security");
+                        mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Ticker is " + tTicker));
                         //Print out all expections
-                        if (temp_securityData.HasElement("fieldExceptions"))
+                        if (tSecurityData.HasElement("fieldExceptions"))
                         {
                             //printMessage("Parsing fieldExceptions...");
-                            Bloomberglp.Blpapi.Element temp_fieldExceptionsArray = temp_securityData.GetElement("fieldExceptions");
-                            List<Bloomberglp.Blpapi.Element> temp_fieldExceptionsList = convertElementArrayToList(temp_fieldExceptionsArray);
-                            for (int j = 0; j < temp_fieldExceptionsList.Count; j++)
+                            Bloomberglp.Blpapi.Element tFieldExceptionsArray = tSecurityData.GetElement("fieldExceptions");
+                            List<Bloomberglp.Blpapi.Element> tFieldExceptionsList = convertElementArrayToList(tFieldExceptionsArray);
+                            for (int j = 0; j < tFieldExceptionsList.Count; j++)
                             {
-                                Bloomberglp.Blpapi.Element temp_fieldException = temp_fieldExceptionsList.ElementAt(j);
-                                BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "Field error: " + temp_fieldException.GetElementAsString("fieldId") + ", "
-                                    + temp_fieldException.GetElement("errorInfo").GetElementAsString("message") + ", "
-                                    + temp_fieldException.GetElement("errorInfo").GetElementAsString("subcategory")));
+                                Bloomberglp.Blpapi.Element tFieldException = tFieldExceptionsList.ElementAt(j);
+                                mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Field error: " + tFieldException.GetElementAsString("fieldId") + ", "
+                                    + tFieldException.GetElement("errorInfo").GetElementAsString("message") + ", "
+                                    + tFieldException.GetElement("errorInfo").GetElementAsString("subcategory")));
                             }
                         }
                         else
                         {
-                            BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "Can't find fieldExceptions"));
+                            mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Can't find fieldExceptions"));
                         }
 
                         //Handle filedData array
-                        if (temp_securityData.HasElement("fieldData"))
+                        if (tSecurityData.HasElement("fieldData"))
                         {
                             //printMessage("Parsing fieldData...");
-                            Bloomberglp.Blpapi.Element temp_fieldDataArray = temp_securityData.GetElement("fieldData");
+                            Bloomberglp.Blpapi.Element tFieldDataArray = tSecurityData.GetElement("fieldData");
                             //printMessage(temp_fieldDataArray.ToString());
-                            List<Bloomberglp.Blpapi.Element> temp_fieldDataList = convertElementArrayToList(temp_fieldDataArray);
-                            BBGEventArgs temp_event = new BBGEventArgs(BBGEventArgs.BBG_MsgType.RequestResponse);
-                            temp_event.t_bbg_msg = argv_element;
-                            temp_event.AddData(temp_ticker);
-                            for (int j = 0; j < temp_fieldDataList.Count; j++)
+                            List<Bloomberglp.Blpapi.Element> tFieldDataList = convertElementArrayToList(tFieldDataArray);
+                            InterfaceEventArgs tEvent = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.RequestResponse);
+                            tEvent.mBbgMsg = argvElement;
+                            tEvent.AddData(tTicker);
+                            for (int j = 0; j < tFieldDataList.Count; j++)
                             {
-                                Bloomberglp.Blpapi.Element temp_fieldData = temp_fieldDataList.ElementAt(j);
-                                string temp_printMsg = "Field data: " + temp_fieldData.GetElementAsString("date");
-                                foreach (string temp_field in t_tasks[temp_ticker].getFieldList())
+                                Bloomberglp.Blpapi.Element tFieldData = tFieldDataList.ElementAt(j);
+                                string temp_printMsg = "Field data: " + tFieldData.GetElementAsString("date");
+                                foreach (string temp_field in mTasks[tTicker].GetFieldList())
                                 {
-                                    string temp_time = temp_fieldData.GetElementAsString("date");
-                                    if (temp_fieldData.HasElement(temp_field))
+                                    string temp_time = tFieldData.GetElementAsString("date");
+                                    if (tFieldData.HasElement(temp_field))
                                     {
-                                        temp_event.AddData(temp_ticker, temp_field, temp_time, temp_fieldData.GetElementAsFloat64(temp_field).ToString());
+                                        tEvent.AddData(tTicker, temp_field, temp_time, tFieldData.GetElementAsFloat64(temp_field).ToString());
                                     }
                                 }
                             }
-                            BBG_Msg(this, temp_event);
+                            mBbgMsgEvent(this, tEvent);
                         }
                         else
                         {
-                            BBG_Msg(this, new BBGEventArgs(BBGEventArgs.BBG_MsgType.Print, "Can't find fieldData"));
+                            mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Can't find fieldData"));
                         }
                     }
                 }
             }
         }
 
-        private void process_intradayTickResponse(Bloomberglp.Blpapi.Element argv_element)
+        private void ProcessIntradayTickResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argv_element.HasElement("responseError"))
+            if (argvElement.HasElement("responseError"))
             {
-                Bloomberglp.Blpapi.Element temp_responseErrorArray = argv_element.GetElement("responseError");
-                List<Bloomberglp.Blpapi.Element> temp_responseErrorList = convertElementArrayToList(temp_responseErrorArray);
-                string temp_errorMsg = string.Empty;
-                for (int i = 0; i < temp_responseErrorList.Count; i++)
+                Bloomberglp.Blpapi.Element tResponseErrorArray = argvElement.GetElement("responseError");
+                List<Bloomberglp.Blpapi.Element> tResponseErrorList = convertElementArrayToList(tResponseErrorArray);
+                string tErrorMsg = string.Empty;
+                for (int i = 0; i < tResponseErrorList.Count; i++)
                 {
-                    Bloomberglp.Blpapi.Element temp_responseError = temp_responseErrorList.ElementAt(i);
-                    temp_errorMsg += "Message error: " + temp_responseError.GetElementAsString("message") + ", " + temp_responseError.GetElementAsString("subcategory");
+                    Bloomberglp.Blpapi.Element tResponseError = tResponseErrorList.ElementAt(i);
+                    tErrorMsg += "Message error: " + tResponseError.GetElementAsString("message") + ", " + tResponseError.GetElementAsString("subcategory");
                 }
-                BBGEventArgs temp_eventArgvs = new BBGEventArgs(BBGEventArgs.BBG_MsgType.IntradayTickResponse, temp_errorMsg);
-                BBG_Msg(this, temp_eventArgvs);
+                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayTickResponse, tErrorMsg);
+                mBbgMsgEvent(this, tEventArgvs);
             }
-            else if (argv_element.HasElement("tickData"))
+            else if (argvElement.HasElement("tickData"))
             {
-                Dictionary<string, double> temp_trades = new Dictionary<string, double>();
-                Bloomberglp.Blpapi.Element temp_elementArray = argv_element.GetElement("tickData").GetElement("tickData");
-                int temp_elementCount = temp_elementArray.NumValues;
-                string temp_print = string.Empty;
-                BBGEventArgs temp_eventArgvs = new BBGEventArgs(BBGEventArgs.BBG_MsgType.IntradayTickResponse);
-                temp_eventArgvs.AddData(t_lastIntradayTickTicker);
-                for (int i = 0; i < temp_elementCount; i++)
+                Dictionary<string, double> tTrades = new Dictionary<string, double>();
+                Bloomberglp.Blpapi.Element tElementArray = argvElement.GetElement("tickData").GetElement("tickData");
+                int tElementCount = tElementArray.NumValues;
+                string tPrintMsg = string.Empty;
+                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayTickResponse);
+                tEventArgvs.AddData(mLastIntradayTickTicker);
+                for (int i = 0; i < tElementCount; i++)
                 {
-                    Bloomberglp.Blpapi.Element temp_element = temp_elementArray.GetValueAsElement(i); ;
-                    double temp_px = temp_element.GetElementAsFloat64("value");
-                    double temp_size = temp_element.GetElementAsFloat64("size");
-                    string temp_type = temp_element.GetElementAsString("type");
-                    string temp_code = string.Empty;
-                    if (temp_element.HasElement("conditionCodes"))
+                    Bloomberglp.Blpapi.Element tElement = tElementArray.GetValueAsElement(i); ;
+                    double tPrice = tElement.GetElementAsFloat64("value");
+                    double tSize = tElement.GetElementAsFloat64("size");
+                    string tType = tElement.GetElementAsString("type");
+                    string tCode = string.Empty;
+                    if (tElement.HasElement("conditionCodes"))
                     {
-                        temp_code = temp_element.GetElementAsString("conditionCodes");
+                        tCode = tElement.GetElementAsString("conditionCodes");
                     }
-                    string temp_tradeID = string.Empty;
-                    if (temp_element.HasElement("tradeId"))
+                    string tTradeID = string.Empty;
+                    if (tElement.HasElement("tradeId"))
                     {
-                        temp_tradeID = temp_element.GetElementAsString("tradeId");
+                        tTradeID = tElement.GetElementAsString("tradeId");
                     }
-                    DateTime temp_time = new DateTime(temp_element.GetElementAsDatetime("time").ToSystemDateTime().Ticks, DateTimeKind.Utc);
-                    temp_time = temp_time.ToLocalTime();
-                    temp_print += Environment.NewLine + temp_time.ToString("yyyy-MM-dd HH:mm:ss") + ", " + temp_type + ", " + temp_code
-                        + ", " + temp_px.ToString() + ", " + temp_size.ToString() + ", " + temp_tradeID;
-                    string temp_id = temp_tradeID + temp_code + temp_time.ToString("yyyy-MM-dd HH:mm:ss") + temp_px.ToString();
-                    if (temp_trades.ContainsKey(temp_id))
+                    DateTime tTime = new DateTime(tElement.GetElementAsDatetime("time").ToSystemDateTime().Ticks, DateTimeKind.Utc);
+                    tTime = tTime.ToLocalTime();
+                    tPrintMsg += Environment.NewLine + tTime.ToString("yyyy-MM-dd HH:mm:ss") + ", " + tType + ", " + tCode
+                        + ", " + tPrice.ToString() + ", " + tSize.ToString() + ", " + tTradeID;
+                    string tId = tTradeID + tCode + tTime.ToString("yyyy-MM-dd HH:mm:ss") + tPrice.ToString();
+                    if (tTrades.ContainsKey(tId))
                     {
-                        temp_trades[temp_id] += temp_size;
-                        temp_size = temp_trades[temp_id];
+                        tTrades[tId] += tSize;
+                        tSize = tTrades[tId];
                     }
                     else
                     {
-                        temp_trades.Add(temp_id, temp_size);
+                        tTrades.Add(tId, tSize);
                     }
 
-                    if (temp_size > 0)
+                    if (tSize > 0)
                     {
-                        temp_eventArgvs.AddData(t_lastIntradayTickTicker, temp_tradeID, temp_code + "," + temp_time.ToString("yyyy-MM-dd HH:mm:ss") + "," + temp_px.ToString(), temp_size.ToString());
+                        tEventArgvs.AddData(mLastIntradayTickTicker, tTradeID, tCode + "," + tTime.ToString("yyyy-MM-dd HH:mm:ss") + "," + tPrice.ToString(), tSize.ToString());
                     }
                 }
-                temp_eventArgvs.t_msg = temp_print;
-                BBG_Msg(this, temp_eventArgvs);
+                tEventArgvs.mMsg = tPrintMsg;
+                mBbgMsgEvent(this, tEventArgvs);
             }
         }
 
-        private void process_intradayBarResponse(Bloomberglp.Blpapi.Element argv_element)
+        private void ProcessIntradayBarResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argv_element.HasElement("responseError"))
+            if (argvElement.HasElement("responseError"))
             {
-                Bloomberglp.Blpapi.Element temp_responseErrorArray = argv_element.GetElement("responseError");
+                Bloomberglp.Blpapi.Element temp_responseErrorArray = argvElement.GetElement("responseError");
                 List<Bloomberglp.Blpapi.Element> temp_responseErrorList = convertElementArrayToList(temp_responseErrorArray);
                 string temp_errorMsg = string.Empty;
                 for (int i = 0; i < temp_responseErrorList.Count; i++)
@@ -531,9 +533,9 @@ namespace BloombergInterface
                 BBGEventArgs temp_eventArgvs = new BBGEventArgs(BBGEventArgs.BBG_MsgType.IntradayBarResponse, temp_errorMsg);
                 BBG_Msg(this, temp_eventArgvs);
             }
-            else if (argv_element.HasElement("barData"))
+            else if (argvElement.HasElement("barData"))
             {
-                Bloomberglp.Blpapi.Element temp_elementArray = argv_element.GetElement("barData").GetElement("barTickData");
+                Bloomberglp.Blpapi.Element temp_elementArray = argvElement.GetElement("barData").GetElement("barTickData");
                 int temp_elementCount = temp_elementArray.NumValues;
                 string temp_print = string.Empty;
                 BBGEventArgs temp_eventArgvs = new BBGEventArgs(BBGEventArgs.BBG_MsgType.IntradayBarResponse);
