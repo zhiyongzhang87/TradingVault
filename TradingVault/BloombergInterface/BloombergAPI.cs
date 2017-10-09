@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Bloomberglp.Blpapi;
+using ToolBox;
+
 
 namespace BloombergInterface
 {
@@ -13,6 +15,7 @@ namespace BloombergInterface
 
         public delegate void BbgEventHandler(object sender, InterfaceEventArgs e);
 
+        private OutputHelper mOutput;
         private Session mSession;
         private Service mReferenceService;
         private Service mMktService;
@@ -27,9 +30,12 @@ namespace BloombergInterface
         private List<string> mCorrelationID;
         private double mMsgCounter;
         private string mLastIntradayTickTicker;
+        private List<string> mRequestResponseErrorAttributes;
+        private List<string> mIntradayBarResponseAttributes;
 
         public BloombergApi()
         {
+            mOutput = new OutputHelper("BloombergApi" + DateTime.Now.ToString("yyyyMMddHHmmss"));
             isSessionRunning = false;
             mTasks = new Dictionary<string, ApiTask>();
             mSubscriptions = new Dictionary<string, Subscription>();
@@ -37,6 +43,17 @@ namespace BloombergInterface
             mTradingDates = new Dictionary<string, string>();
             mCorrelationID = new List<string>();
             mMsgCounter = 0;
+
+            mRequestResponseErrorAttributes = new List<string>();
+            mRequestResponseErrorAttributes.Add("message");
+            mRequestResponseErrorAttributes.Add("subcategory");
+
+            mIntradayBarResponseAttributes = new List<string>();
+            mIntradayBarResponseAttributes.Add("time");
+            mIntradayBarResponseAttributes.Add("open");
+            mIntradayBarResponseAttributes.Add("high");
+            mIntradayBarResponseAttributes.Add("low");
+            mIntradayBarResponseAttributes.Add("close");
         }
 
         public void Connect()
@@ -348,6 +365,19 @@ namespace BloombergInterface
             foreach (Bloomberglp.Blpapi.Message tMsg in argvEvent)
             {
                 Bloomberglp.Blpapi.Element tElementMsg = tMsg.AsElement;
+                System.Data.DataTable tResponseErrorTable = this.ExtractValueByName(tElementMsg, mRequestResponseErrorAttributes);
+
+                if (tResponseErrorTable.Rows.Count > 0)
+                {
+                    string tErrorMsg = "Message Type: " + tMsg.MessageType.ToString() + Environment.NewLine;
+                    for (int i = 0; i < tResponseErrorTable.Rows.Count; i++)
+                    {
+                        tErrorMsg += "Error Message: " + tResponseErrorTable.Rows[i]["MESSAGE"] + ", Category: " + tResponseErrorTable.Rows[i]["SUBCATEGORY"] + Environment.NewLine;
+                    }
+                    InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Error, tErrorMsg);
+                    mBbgMsgEvent(this, tEventArgvs);
+                }
+
                 //printMessage("New message : " + temp_element_msg.ToString());
                 if (tMsg.MessageType.Equals(new Bloomberglp.Blpapi.Name("HistoricalDataResponse")))
                 {
@@ -377,17 +407,6 @@ namespace BloombergInterface
 
         private void ProcessHistoricalDataResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argvElement.HasElement("responseError"))
-            {
-                Bloomberglp.Blpapi.Element tResponseErrorArray = argvElement.GetElement("responseError");
-                List<Bloomberglp.Blpapi.Element> tResponseErrorList = ConvertElementArrayToList(tResponseErrorArray);
-                for (int i = 0; i < tResponseErrorList.Count; i++)
-                {
-                    Bloomberglp.Blpapi.Element tResponseError = tResponseErrorList.ElementAt(i);
-                    mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "Message error: " + tResponseError.GetElementAsString("message") + ", " + tResponseError.GetElementAsString("subcategory")));
-                }
-            }
-
             if (argvElement.HasElement("securityData"))
             {
                 //printMessage("Parsing securityData...");
@@ -456,20 +475,7 @@ namespace BloombergInterface
 
         private void ProcessIntradayTickResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argvElement.HasElement("responseError"))
-            {
-                Bloomberglp.Blpapi.Element tResponseErrorArray = argvElement.GetElement("responseError");
-                List<Bloomberglp.Blpapi.Element> tResponseErrorList = ConvertElementArrayToList(tResponseErrorArray);
-                string tErrorMsg = string.Empty;
-                for (int i = 0; i < tResponseErrorList.Count; i++)
-                {
-                    Bloomberglp.Blpapi.Element tResponseError = tResponseErrorList.ElementAt(i);
-                    tErrorMsg += "Message error: " + tResponseError.GetElementAsString("message") + ", " + tResponseError.GetElementAsString("subcategory");
-                }
-                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayTickResponse, tErrorMsg);
-                mBbgMsgEvent(this, tEventArgvs);
-            }
-            else if (argvElement.HasElement("tickData"))
+            if (argvElement.HasElement("tickData"))
             {
                 Dictionary<string, double> tTrades = new Dictionary<string, double>();
                 Bloomberglp.Blpapi.Element tElementArray = argvElement.GetElement("tickData").GetElement("tickData");
@@ -520,20 +526,10 @@ namespace BloombergInterface
 
         private void ProcessIntradayBarResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            if (argvElement.HasElement("responseError"))
-            {
-                Bloomberglp.Blpapi.Element tResponseErrorArray = argvElement.GetElement("responseError");
-                List<Bloomberglp.Blpapi.Element> tResponseErrorList = ConvertElementArrayToList(tResponseErrorArray);
-                string tErrorMsg = string.Empty;
-                for (int i = 0; i < tResponseErrorList.Count; i++)
-                {
-                    Bloomberglp.Blpapi.Element tResponseError = tResponseErrorList.ElementAt(i);
-                    tErrorMsg += "Message error: " + tResponseError.GetElementAsString("message") + ", " + tResponseError.GetElementAsString("subcategory");
-                }
-                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayBarResponse, tErrorMsg);
-                mBbgMsgEvent(this, tEventArgvs);
-            }
-            else if (argvElement.HasElement("barData"))
+            System.Data.DataTable tExtractedValues = this.ExtractValueByName(argvElement, mIntradayBarResponseAttributes);
+            mOutput.PrintDataTable(tExtractedValues);
+
+            if (argvElement.HasElement("barData"))
             {
                 Bloomberglp.Blpapi.Element tElementArray = argvElement.GetElement("barData").GetElement("barTickData");
                 int tElementCount = tElementArray.NumValues;
@@ -542,7 +538,7 @@ namespace BloombergInterface
                 tEventArgvs.AddData(mLastIntradayTickTicker);
                 for (int i = 0; i < tElementCount; i++)
                 {
-                    Bloomberglp.Blpapi.Element tElement = tElementArray.GetValueAsElement(i); ;
+                    Bloomberglp.Blpapi.Element tElement = tElementArray.GetValueAsElement(i);
                     double tOpen = tElement.GetElementAsFloat64("open");
                     double tHigh = tElement.GetElementAsFloat64("high");
                     double tLow = tElement.GetElementAsFloat64("low");
@@ -724,17 +720,30 @@ namespace BloombergInterface
         public void ShutDown()
         {
             isSessionRunning = false;
-            List<Subscription> tSubscription = new List<Subscription>();
-            foreach (string tTicker in mSubscriptions.Keys)
+
+            if (mSession != null)
             {
-                if (mSubscriptions[tTicker].SubscriptionStatus != Session.SubscriptionStatus.UNSUBSCRIBED)
+                List<Subscription> tSubscription = new List<Subscription>();
+                foreach (string tTicker in mSubscriptions.Keys)
                 {
-                    tSubscription.Add(mSubscriptions[tTicker]);
+                    if (mSubscriptions[tTicker].SubscriptionStatus != Session.SubscriptionStatus.UNSUBSCRIBED)
+                    {
+                        tSubscription.Add(mSubscriptions[tTicker]);
+                    }
                 }
+
+                if (tSubscription.Count > 0)
+                {
+                    mSession.Unsubscribe(tSubscription);
+                }
+
+                if (mBbgMsgWorker != null)
+                {
+                    mBbgMsgWorker.Join();
+                }
+
+                mSession.Stop();
             }
-            mSession.Unsubscribe(tSubscription);
-            mBbgMsgWorker.Join();
-            mSession.Stop();
         }
     }
 }

@@ -31,7 +31,7 @@ namespace BloombergInterface
         {
             mMsgType = argvMsgType;
             mBbgMsg = null;
-            mData = null;
+            mData = new Dictionary<string, BloombergData>();
             mMsg = string.Empty;
         }
 
@@ -40,7 +40,7 @@ namespace BloombergInterface
             mMsgType = argvMsgType;
             mMsg = argvMsg;
             mBbgMsg = null;
-            mData = null;
+            mData = new Dictionary<string, BloombergData>();
         }
 
         public void AddData(string argvTicker)

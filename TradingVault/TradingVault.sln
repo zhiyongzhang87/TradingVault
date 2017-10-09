@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradingVault", "TradingVaul
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BloombergInterface", "BloombergInterface\BloombergInterface.csproj", "{462A56E9-5E67-4F22-91F6-EC34CE2CBEE6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToolBox", "ToolBox\ToolBox.csproj", "{1A8D8ADD-22B6-478C-A2AC-D2FBDC2D8E5C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{462A56E9-5E67-4F22-91F6-EC34CE2CBEE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{462A56E9-5E67-4F22-91F6-EC34CE2CBEE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{462A56E9-5E67-4F22-91F6-EC34CE2CBEE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A8D8ADD-22B6-478C-A2AC-D2FBDC2D8E5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A8D8ADD-22B6-478C-A2AC-D2FBDC2D8E5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A8D8ADD-22B6-478C-A2AC-D2FBDC2D8E5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A8D8ADD-22B6-478C-A2AC-D2FBDC2D8E5C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
