@@ -24,14 +24,14 @@ namespace BloombergInterface
 
         public xBbgMsgType mMsgType;
         public string mMsg;
-        public Dictionary<string, BloombergData> mData;
+        public System.Data.DataTable mData;
         public Bloomberglp.Blpapi.Element mBbgMsg;
 
         public InterfaceEventArgs(xBbgMsgType argvMsgType)
         {
             mMsgType = argvMsgType;
             mBbgMsg = null;
-            mData = new Dictionary<string, BloombergData>();
+            mData = new System.Data.DataTable();
             mMsg = string.Empty;
         }
 
@@ -40,24 +40,49 @@ namespace BloombergInterface
             mMsgType = argvMsgType;
             mMsg = argvMsg;
             mBbgMsg = null;
-            mData = new Dictionary<string, BloombergData>();
+            mData = new System.Data.DataTable();
         }
 
-        public void AddData(string argvTicker)
+        public void AddData(KeyValuePair<string, string> argvKey, Dictionary<string, string> argvValues)
         {
-            if (!mData.ContainsKey(argvTicker))
+            if (!mData.Columns.Contains(argvKey.Key))
             {
-                mData.Add(argvTicker, new BloombergData(argvTicker));
+                this.AddColumn(argvKey.Key, "");
+            }
+
+            foreach(string tValueLable in argvValues.Keys)
+            {
+                if (!mData.Columns.Contains(tValueLable))
+                {
+                    this.AddColumn(tValueLable, "");
+                }
+            }
+
+            System.Data.DataRow[] tRowFound = mData.Select(argvKey.Key + " = '" + argvKey.Value + "'");
+            if(tRowFound.Count() == 0)
+            {
+                System.Data.DataRow tNewRow = mData.NewRow();
+                tNewRow[argvKey.Key] = argvKey.Value;
+                foreach (string tValueLable in argvValues.Keys)
+                {
+                    tNewRow[tValueLable] = argvValues[tValueLable];
+                }
+                mData.Rows.Add(tNewRow);
+            }
+            else
+            {
+                foreach (string tValueLable in argvValues.Keys)
+                {
+                    tRowFound[0][tValueLable] = argvValues[tValueLable];
+                }
             }
         }
 
-        public void AddData(string argvTicker, string argvField, string argvTime, string argvData)
+        private void AddColumn(string argvColumnHead, string argvDefaultValue)
         {
-            if (mData != null)
-            {
-                this.AddData(argvTicker);
-                mData[argvTicker].Update(argvField, argvTime, argvData);
-            }
+            System.Data.DataColumn tNewColumn = new System.Data.DataColumn(argvColumnHead);
+            tNewColumn.DefaultValue = argvDefaultValue;
+            mData.Columns.Add(tNewColumn);
         }
     }
 }

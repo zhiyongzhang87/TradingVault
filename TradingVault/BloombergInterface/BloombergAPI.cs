@@ -31,7 +31,10 @@ namespace BloombergInterface
         private double mMsgCounter;
         private string mLastIntradayTickTicker;
         private List<string> mRequestResponseErrorAttributes;
+        private List<string> mIntradayBarResponseDefaultAttributes;
         private List<string> mIntradayBarResponseAttributes;
+        private List<string> mIntradayTickResponseDefaultAttributes;
+        private List<string> mIntradayTickResponseAttributes;
 
         public BloombergApi()
         {
@@ -49,11 +52,21 @@ namespace BloombergInterface
             mRequestResponseErrorAttributes.Add("subcategory");
 
             mIntradayBarResponseAttributes = new List<string>();
-            mIntradayBarResponseAttributes.Add("time");
-            mIntradayBarResponseAttributes.Add("open");
-            mIntradayBarResponseAttributes.Add("high");
-            mIntradayBarResponseAttributes.Add("low");
-            mIntradayBarResponseAttributes.Add("close");
+            mIntradayBarResponseDefaultAttributes = new List<string>();
+            mIntradayBarResponseDefaultAttributes.Add("time");
+            mIntradayBarResponseDefaultAttributes.Add("open");
+            mIntradayBarResponseDefaultAttributes.Add("high");
+            mIntradayBarResponseDefaultAttributes.Add("low");
+            mIntradayBarResponseDefaultAttributes.Add("close");
+
+            mIntradayTickResponseAttributes = new List<string>();
+            mIntradayTickResponseDefaultAttributes = new List<string>();
+            mIntradayTickResponseDefaultAttributes.Add("time");
+            mIntradayTickResponseDefaultAttributes.Add("value");
+            mIntradayTickResponseDefaultAttributes.Add("size");
+            mIntradayTickResponseDefaultAttributes.Add("type");
+            mIntradayTickResponseDefaultAttributes.Add("conditionCodes");
+            mIntradayTickResponseDefaultAttributes.Add("tradeId");
         }
 
         public void Connect()
@@ -448,7 +461,7 @@ namespace BloombergInterface
                             List<Bloomberglp.Blpapi.Element> tFieldDataList = ConvertElementArrayToList(tFieldDataArray);
                             InterfaceEventArgs tEvent = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.RequestResponse);
                             tEvent.mBbgMsg = argvElement;
-                            tEvent.AddData(tTicker);
+                            //tEvent.AddData(tTicker);
                             for (int j = 0; j < tFieldDataList.Count; j++)
                             {
                                 Bloomberglp.Blpapi.Element tFieldData = tFieldDataList.ElementAt(j);
@@ -458,7 +471,7 @@ namespace BloombergInterface
                                     string tTime = tFieldData.GetElementAsString("date");
                                     if (tFieldData.HasElement(tField))
                                     {
-                                        tEvent.AddData(tTicker, tField, tTime, tFieldData.GetElementAsFloat64(tField).ToString());
+                                        //tEvent.AddData(tTicker, tField, tTime, tFieldData.GetElementAsFloat64(tField).ToString());
                                     }
                                 }
                             }
@@ -475,6 +488,14 @@ namespace BloombergInterface
 
         private void ProcessIntradayTickResponse(Bloomberglp.Blpapi.Element argvElement)
         {
+            List<string> tTargetAttributes = mIntradayTickResponseDefaultAttributes;
+            if (mIntradayTickResponseAttributes.Count > 0)
+            {
+                tTargetAttributes = mIntradayTickResponseAttributes;
+            }
+            System.Data.DataTable tExtractedValues = this.ExtractValueByName(argvElement, tTargetAttributes);
+            mOutput.PrintDataTable(tExtractedValues);
+
             if (argvElement.HasElement("tickData"))
             {
                 Dictionary<string, double> tTrades = new Dictionary<string, double>();
@@ -482,7 +503,6 @@ namespace BloombergInterface
                 int tElementCount = tElementArray.NumValues;
                 string tPrintMsg = string.Empty;
                 InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayTickResponse);
-                tEventArgvs.AddData(mLastIntradayTickTicker);
                 for (int i = 0; i < tElementCount; i++)
                 {
                     Bloomberglp.Blpapi.Element tElement = tElementArray.GetValueAsElement(i); ;
@@ -516,42 +536,29 @@ namespace BloombergInterface
 
                     if (tSize > 0)
                     {
-                        tEventArgvs.AddData(mLastIntradayTickTicker, tTradeID, tCode + "," + tTime.ToString("yyyy-MM-dd HH:mm:ss") + "," + tPrice.ToString(), tSize.ToString());
+                        //tEventArgvs.AddData(mLastIntradayTickTicker, tTradeID, tCode + "," + tTime.ToString("yyyy-MM-dd HH:mm:ss") + "," + tPrice.ToString(), tSize.ToString());
                     }
                 }
                 tEventArgvs.mMsg = tPrintMsg;
+                tEventArgvs.mData = tExtractedValues;
                 mBbgMsgEvent(this, tEventArgvs);
             }
         }
 
         private void ProcessIntradayBarResponse(Bloomberglp.Blpapi.Element argvElement)
         {
-            System.Data.DataTable tExtractedValues = this.ExtractValueByName(argvElement, mIntradayBarResponseAttributes);
-            mOutput.PrintDataTable(tExtractedValues);
-
-            if (argvElement.HasElement("barData"))
+            List<string> tTargetAttributes = mIntradayBarResponseDefaultAttributes;
+            if(mIntradayBarResponseAttributes.Count > 0)
             {
-                Bloomberglp.Blpapi.Element tElementArray = argvElement.GetElement("barData").GetElement("barTickData");
-                int tElementCount = tElementArray.NumValues;
-                string tPrint = string.Empty;
-                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayBarResponse);
-                tEventArgvs.AddData(mLastIntradayTickTicker);
-                for (int i = 0; i < tElementCount; i++)
-                {
-                    Bloomberglp.Blpapi.Element tElement = tElementArray.GetValueAsElement(i);
-                    double tOpen = tElement.GetElementAsFloat64("open");
-                    double tHigh = tElement.GetElementAsFloat64("high");
-                    double tLow = tElement.GetElementAsFloat64("low");
-                    double tClose = tElement.GetElementAsFloat64("close");
-                    DateTime tTime = new DateTime(tElement.GetElementAsDatetime("time").ToSystemDateTime().Ticks, DateTimeKind.Utc);
-                    tTime = tTime.ToLocalTime();
-                    tPrint += Environment.NewLine + tTime.ToString("yyyy-MM-dd HH:mm:ss") + ", " + tOpen.ToString() + ", " + tHigh.ToString()
-                        + ", " + tLow.ToString() + ", " + tClose.ToString();
+                tTargetAttributes = mIntradayBarResponseAttributes;
+            }
+            System.Data.DataTable tExtractedValues = this.ExtractValueByName(argvElement, tTargetAttributes);
+            //mOutput.PrintDataTable(tExtractedValues);
 
-                    tEventArgvs.AddData(mLastIntradayTickTicker, mLastIntradayTickTicker, tTime.ToString("yyyy-MM-dd HH:mm:ss")
-                        , tOpen.ToString() + "," + tHigh.ToString() + "," + tLow.ToString() + "," + tClose.ToString());
-                }
-                tEventArgvs.mMsg = tPrint;
+            if(tExtractedValues.Rows.Count > 0)
+            {
+                InterfaceEventArgs tEventArgvs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.IntradayBarResponse);
+                tEventArgvs.mData = tExtractedValues;
                 mBbgMsgEvent(this, tEventArgvs);
             }
         }
@@ -611,12 +618,16 @@ namespace BloombergInterface
                 string tBid = mMktData[tTicker].GetValue("BID", tTradingDate);
                 string tAsk = mMktData[tTicker].GetValue("ASK", tTradingDate);
 
-                InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.SubscriptionResponse, tMsg.TopicName + ", " + tMsg.CorrelationID.Object.ToString() + ": Trading Date " + tTradingDate + ", BID " + tBid
-                    + ", ASK " + tAsk);
-                //+ ", ASK " + temp_ask + Environment.NewLine + msg.ToString());
-                tArgs.AddData(tMsg.TopicName);
-                tArgs.AddData(tMsg.TopicName, "BID", tTradingDate, tBid);
-                tArgs.AddData(tMsg.TopicName, "ASK", tTradingDate, tAsk);
+                InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.SubscriptionResponse);
+                tArgs.mMsg = tMsg.TopicName + ", " + tMsg.CorrelationID.Object.ToString() + ": Trading Date " + tTradingDate + ", BID " + tBid + ", ASK " + tAsk;
+                tArgs.mData.Columns.Add(new System.Data.DataColumn("TICKER"));
+                tArgs.mData.Columns.Add(new System.Data.DataColumn("BID"));
+                tArgs.mData.Columns.Add(new System.Data.DataColumn("ASK"));
+                System.Data.DataRow tNewRow = tArgs.mData.NewRow();
+                tNewRow["TICKER"] = tTicker;
+                tNewRow["BID"] = tBid;
+                tNewRow["ASK"] = tAsk;
+                tArgs.mData.Rows.Add(tNewRow);
                 mBbgMsgEvent(this, tArgs);
             }
         }
