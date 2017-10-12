@@ -26,7 +26,6 @@ namespace BloombergInterface
         public event BbgEventHandler mBbgMsgEvent;
         private System.Threading.Thread mBbgMsgWorker;
         private Dictionary<string, Subscription> mSubscriptions;
-        private Dictionary<string, MarketData> mMktData;
         private Dictionary<string, string> mTradingDates;
         private List<string> mCorrelationID;
         private double mMsgCounter;
@@ -49,7 +48,6 @@ namespace BloombergInterface
             mOutput = new OutputHelper("BloombergApi" + DateTime.Now.ToString("yyyyMMddHHmmss"));
             isSessionRunning = false;
             mSubscriptions = new Dictionary<string, Subscription>();
-            mMktData = new Dictionary<string, MarketData>();
             mTradingDates = new Dictionary<string, string>();
             mCorrelationID = new List<string>();
             mMsgCounter = 0;
@@ -352,7 +350,6 @@ namespace BloombergInterface
                     Bloomberglp.Blpapi.Subscription tSubscription = new Subscription(tTask.mBbgTicker, tFields, tOptions, tCorrelationId);
                     mSubscriptions.Add(tTask.mBbgTicker, tSubscription);
                     tNewTask.Add(tSubscription);
-                    mMktData.Add(tTask.mBbgTicker, new MarketData(tTask.mTicker, tTask.mBbgTicker));
                     mTradingDates.Add(tTask.mBbgTicker, DateTime.Today.ToString("yyyy-MM-dd"));
                 }
             }
@@ -603,49 +600,6 @@ namespace BloombergInterface
 
                 if (tExtractedValues.Rows.Count > 0)
                 {
-                    if (mMktData.ContainsKey(tMsg.TopicName))
-                    {
-                        DateTime tTradingDate = DateTime.MinValue;
-                        double tBid = 0;
-                        DateTime tBidUpdateTime = DateTime.MinValue;
-                        double tAsk = 0;
-                        DateTime tAskUpdateTime = DateTime.MinValue;
-                        double tLastTradePrice = 0;
-                        DateTime tLastTradeTime = DateTime.MinValue;
-
-                        if (tExtractedValues.Rows[0]["Bid"].ToString().Length != 0)
-                        {
-                            tBid = double.Parse(tExtractedValues.Rows[0]["Bid"].ToString());
-                        }
-
-                        if (tExtractedValues.Rows[0]["LAST_UPDATE_BID_RT"].ToString().Length != 0)
-                        {
-                            tBidUpdateTime = DateTime.ParseExact(tExtractedValues.Rows[0]["LAST_UPDATE_BID_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
-                        }
-
-                        if (tExtractedValues.Rows[0]["Ask"].ToString().Length != 0)
-                        {
-                            tAsk = double.Parse(tExtractedValues.Rows[0]["Ask"].ToString());
-                        }
-
-                        if (tExtractedValues.Rows[0]["LAST_UPDATE_ASK_RT"].ToString().Length != 0)
-                        {
-                            tAskUpdateTime = DateTime.ParseExact(tExtractedValues.Rows[0]["LAST_UPDATE_ASK_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
-                        }
-
-                        if (tExtractedValues.Rows[0]["LAST_TRADE"].ToString().Length != 0)
-                        {
-                            tLastTradePrice = double.Parse(tExtractedValues.Rows[0]["LAST_TRADE"].ToString());
-                        }
-
-                        if (tExtractedValues.Rows[0]["TRADE_UPDATE_STAMP_RT"].ToString().Length != 0)
-                        {
-                            tLastTradeTime = DateTime.ParseExact(tExtractedValues.Rows[0]["TRADE_UPDATE_STAMP_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
-                        }
-
-                        mMktData[tMsg.TopicName].Update(DateTime.MinValue, tBid, tBidUpdateTime, tAsk, tAskUpdateTime, tLastTradePrice, tLastTradeTime);
-                    }
-
                     InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.SubscriptionResponse);
                     tArgs.mData = tExtractedValues;
                     mBbgMsgEvent(this, tArgs);

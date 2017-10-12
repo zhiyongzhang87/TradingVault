@@ -45,7 +45,6 @@
   <ItemGroup>
     <Compile Include="ApiTask.cs" />
     <Compile Include="BloombergApi.cs" />
-    <Compile Include="MarketData.cs" />
     <Compile Include="InterfaceEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
