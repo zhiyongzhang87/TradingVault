@@ -14,7 +14,7 @@ namespace BloombergInterface
             Print,
             LoginSuccess,
             LoginFail,
-            RequestResponse,
+            HistoricalDataResponse,
             IntradayTickResponse,
             IntradayBarResponse,
             SubscriptionResponse,
@@ -43,14 +43,9 @@ namespace BloombergInterface
             mData = new System.Data.DataTable();
         }
 
-        public void AddData(KeyValuePair<string, string> argvKey, Dictionary<string, string> argvValues)
+        public void AddData(Dictionary<string, string> argvValues)
         {
-            if (!mData.Columns.Contains(argvKey.Key))
-            {
-                this.AddColumn(argvKey.Key, "");
-            }
-
-            foreach(string tValueLable in argvValues.Keys)
+            foreach (string tValueLable in argvValues.Keys)
             {
                 if (!mData.Columns.Contains(tValueLable))
                 {
@@ -58,24 +53,12 @@ namespace BloombergInterface
                 }
             }
 
-            System.Data.DataRow[] tRowFound = mData.Select(argvKey.Key + " = '" + argvKey.Value + "'");
-            if(tRowFound.Count() == 0)
+            System.Data.DataRow tNewRow = mData.NewRow();
+            foreach (string tValueLable in argvValues.Keys)
             {
-                System.Data.DataRow tNewRow = mData.NewRow();
-                tNewRow[argvKey.Key] = argvKey.Value;
-                foreach (string tValueLable in argvValues.Keys)
-                {
-                    tNewRow[tValueLable] = argvValues[tValueLable];
-                }
-                mData.Rows.Add(tNewRow);
+                tNewRow[tValueLable] = argvValues[tValueLable];
             }
-            else
-            {
-                foreach (string tValueLable in argvValues.Keys)
-                {
-                    tRowFound[0][tValueLable] = argvValues[tValueLable];
-                }
-            }
+            mData.Rows.Add(tNewRow);
         }
 
         private void AddColumn(string argvColumnHead, string argvDefaultValue)

@@ -11,6 +11,7 @@ namespace TradingVault
     {
         static void Main(string[] args)
         {
+            Console.SetBufferSize(Console.BufferWidth, 23766);
             Tester tTester = new Tester();
             Console.ReadLine();
             tTester.ShutDown();

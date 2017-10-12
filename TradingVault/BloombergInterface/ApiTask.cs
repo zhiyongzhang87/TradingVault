@@ -36,6 +36,18 @@ namespace BloombergInterface
             mStartTime = argvStartTime;
             mEndTime = argvEndTime;
         }
+
+        public string[] GetTickerList()
+        {
+            string[] tRet = mTicker.Split(',');
+            return tRet;
+        }
+
+        public string[] GetBbgTickerList()
+        {
+            string[] tRet = mBbgTicker.Split(',');
+            return tRet;
+        }
     }
 
     public class ApiTaskRealtime : ApiTask
