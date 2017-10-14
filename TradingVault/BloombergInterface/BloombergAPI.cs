@@ -14,6 +14,8 @@ namespace BloombergInterface
         public enum xProductTenor { Unknown, Cash, Future, Option }
 
         public delegate void BbgEventHandler(object sender, InterfaceEventArgs e);
+        public TickerConverter mTickerConverter;
+        public event BbgEventHandler mBbgMsgEvent;
 
         private object mLockCorrelationIdGenerator;
         private long mCurrentCorrelationId;
@@ -23,7 +25,6 @@ namespace BloombergInterface
         private Service mMktService;
         private Service mLookupService;
         private bool isSessionRunning;
-        public event BbgEventHandler mBbgMsgEvent;
         private System.Threading.Thread mBbgMsgWorker;
         private Dictionary<string, Subscription> mSubscriptions;
         private Dictionary<string, string> mTradingDates;
@@ -46,6 +47,7 @@ namespace BloombergInterface
             mLockCorrelationIdGenerator = new object();
             mCurrentCorrelationId = 0;
             mOutput = new OutputHelper("BloombergApi" + DateTime.Now.ToString("yyyyMMddHHmmss"));
+            mTickerConverter = new TickerConverter();
             isSessionRunning = false;
             mSubscriptions = new Dictionary<string, Subscription>();
             mTradingDates = new Dictionary<string, string>();
@@ -85,13 +87,16 @@ namespace BloombergInterface
             mHistoricalDataResponseDefaultAttributes[4] = "LOW";
             mHistoricalDataResponseDefaultAttributes[5] = "LAST_PRICE";
 
-            mRealTimeDataDefaultAttributes = new string[6];
+            mRealTimeDataDefaultAttributes = new string[9];
             mRealTimeDataDefaultAttributes[0] = "LAST_UPDATE_BID_RT";
-            mRealTimeDataDefaultAttributes[1] = "BID";
-            mRealTimeDataDefaultAttributes[2] = "ASK";
-            mRealTimeDataDefaultAttributes[3] = "LAST_UPDATE_ASK_RT";
-            mRealTimeDataDefaultAttributes[4] = "LAST_TRADE";
-            mRealTimeDataDefaultAttributes[5] = "TRADE_UPDATE_STAMP_RT";
+            mRealTimeDataDefaultAttributes[1] = "BID_SIZE";
+            mRealTimeDataDefaultAttributes[2] = "BID";
+            mRealTimeDataDefaultAttributes[3] = "ASK";
+            mRealTimeDataDefaultAttributes[4] = "ASK_SIZE";
+            mRealTimeDataDefaultAttributes[5] = "LAST_UPDATE_ASK_RT";
+            mRealTimeDataDefaultAttributes[6] = "LAST_TRADE";
+            mRealTimeDataDefaultAttributes[7] = "SIZE_LAST_TRADE";
+            mRealTimeDataDefaultAttributes[8] = "TRADE_UPDATE_STAMP_RT";
         }
 
         private long GenerateCorrelationId()
@@ -591,12 +596,13 @@ namespace BloombergInterface
             foreach (Bloomberglp.Blpapi.Message tMsg in argEvent)
             {
                 Bloomberglp.Blpapi.Element tElementMsg = tMsg.AsElement;
-                System.Data.DataTable tExtractedValues = this.ExtractValueByName(tElementMsg, mRealTimeDataDefaultAttributes);
+                string[] tTargetAttributes = mSubscriptionByCorrelationId[tMsg.CorrelationID.Value].GetFieldList();
+                System.Data.DataTable tExtractedValues = this.ExtractValueByName(tElementMsg, tTargetAttributes);
                 System.Data.DataColumn tNewColumn = new System.Data.DataColumn("SECURITY");
                 tNewColumn.DefaultValue = tMsg.TopicName;
                 tExtractedValues.Columns.Add(tNewColumn);
                 tNewColumn.SetOrdinal(0);
-                mOutput.PrintDataTable(tExtractedValues);
+                //mOutput.PrintDataTable(tExtractedValues);
 
                 if (tExtractedValues.Rows.Count > 0)
                 {
@@ -610,8 +616,14 @@ namespace BloombergInterface
         private void ProcessReferenceDataResponse(Bloomberglp.Blpapi.Message argvMessage)
         {
             Bloomberglp.Blpapi.Element tElementMsg = argvMessage.AsElement;
+            string[] tTargetAttributes = mOtherRequestByCorrelationId[argvMessage.CorrelationID.Value].GetFieldList();
+            System.Data.DataTable tExtractedValues = this.ExtractValueByName(tElementMsg, tTargetAttributes);
+            System.Data.DataColumn tNewColumn = new System.Data.DataColumn("SECURITY");
+            tNewColumn.DefaultValue = mOtherRequestByCorrelationId[argvMessage.CorrelationID.Value].mTicker;
+            tExtractedValues.Columns.Add(tNewColumn);
+            tNewColumn.SetOrdinal(0);
             InterfaceEventArgs tRetData = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.ReferenceDataResponse);
-            tRetData.mBbgMsg = tElementMsg;
+            tRetData.mData = tExtractedValues;
             mBbgMsgEvent(this, tRetData);
         }
 

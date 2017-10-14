@@ -47,12 +47,18 @@
     <Compile Include="BloombergApi.cs" />
     <Compile Include="InterfaceEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TickerConverter.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ToolBox\ToolBox.csproj">
       <Project>{1a8d8add-22b6-478c-a2ac-d2fbdc2d8e5c}</Project>
       <Name>ToolBox</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="TickerLookupTable.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -25,12 +25,10 @@ namespace BloombergInterface
         public xBbgMsgType mMsgType;
         public string mMsg;
         public System.Data.DataTable mData;
-        public Bloomberglp.Blpapi.Element mBbgMsg;
 
         public InterfaceEventArgs(xBbgMsgType argvMsgType)
         {
             mMsgType = argvMsgType;
-            mBbgMsg = null;
             mData = new System.Data.DataTable();
             mMsg = string.Empty;
         }
@@ -39,7 +37,6 @@ namespace BloombergInterface
         {
             mMsgType = argvMsgType;
             mMsg = argvMsg;
-            mBbgMsg = null;
             mData = new System.Data.DataTable();
         }
 
