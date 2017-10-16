@@ -53,6 +53,7 @@ namespace BloombergInterface
             string tSymbol = tSplitParts[0];
             int tYear = 0;
             int tYearLastDigit = 0;
+            int tYearLastTwoDigit = 0;
             int tMonth = 0;
             string tMonthCode = string.Empty;
             string tOptionType = string.Empty;
@@ -66,6 +67,7 @@ namespace BloombergInterface
                 {
                     tYear = int.Parse(tSplitParts[1].Substring(0, 4));
                     tYearLastDigit = tYear - tYear / 10 * 10;
+                    tYearLastTwoDigit = tYear - tYear / 100 * 100;
                     tMonth = int.Parse(tSplitParts[1].Substring(4, 2));
                     tMonthCode = mMonthCodes[tMonth];
                     if (tSplitParts.Length > 2)
@@ -78,6 +80,7 @@ namespace BloombergInterface
                 tBloombergTicker = mTickerLookupTable[tSymbol];
                 tBloombergTicker = tBloombergTicker.Replace("{MonthCode}", tMonthCode);
                 tBloombergTicker = tBloombergTicker.Replace("{YearLastDigit}", tYearLastDigit.ToString());
+                tBloombergTicker = tBloombergTicker.Replace("{YearLastTwoDigit}", tYearLastTwoDigit.ToString("00"));
                 tBloombergTicker = tBloombergTicker.Replace("{OptionType}", tOptionType);
                 tBloombergTicker = tBloombergTicker.Replace("{Strike}", tStrike.ToString());
             }

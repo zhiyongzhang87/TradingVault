@@ -1,2 +1,3 @@
 ﻿ES:0:ES{MonthCode}{YearLastDigit} INDEX
 ZB3:100:3C{MonthCode}{YearLastDigit}{OptionType} {Strike} COMB COMDTY
+WB3:100:USW{MonthCode}{YearLastTwoDigit}{OptionType}3 {Strike} COMB COMDTY

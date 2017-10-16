@@ -24,11 +24,13 @@ namespace BloombergInterface
 
         public xBbgMsgType mMsgType;
         public string mMsg;
+        public long mCorrelationId;
         public System.Data.DataTable mData;
 
         public InterfaceEventArgs(xBbgMsgType argvMsgType)
         {
             mMsgType = argvMsgType;
+            mCorrelationId = -1;
             mData = new System.Data.DataTable();
             mMsg = string.Empty;
         }

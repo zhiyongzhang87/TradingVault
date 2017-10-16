@@ -27,6 +27,7 @@ namespace BloombergInterface
         private bool isSessionRunning;
         private System.Threading.Thread mBbgMsgWorker;
         private Dictionary<string, Subscription> mSubscriptions;
+        private Dictionary<long, MarketData> mMarketData;
         private Dictionary<string, string> mTradingDates;
         private List<string> mCorrelationID;
         private double mMsgCounter;
@@ -51,6 +52,7 @@ namespace BloombergInterface
             isSessionRunning = false;
             mSubscriptions = new Dictionary<string, Subscription>();
             mTradingDates = new Dictionary<string, string>();
+            mMarketData = new Dictionary<long, MarketData>();
             mCorrelationID = new List<string>();
             mMsgCounter = 0;
 
@@ -337,8 +339,9 @@ namespace BloombergInterface
                         + " from " + argvTask.mStartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss") + " to " + argvTask.mEndTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss")));
         }
 
-        public void SubscribeMktData(List<ApiTaskRealtime> argvTasks)
+        public Dictionary<long, MarketData> SubscribeMktData(List<ApiTaskRealtime> argvTasks)
         {
+            Dictionary<long, MarketData> tReturnValue = new Dictionary<long, MarketData>();
             List<Subscription> tNewTask = new List<Subscription>();
             foreach (ApiTaskRealtime tTask in argvTasks)
             {
@@ -356,10 +359,14 @@ namespace BloombergInterface
                     mSubscriptions.Add(tTask.mBbgTicker, tSubscription);
                     tNewTask.Add(tSubscription);
                     mTradingDates.Add(tTask.mBbgTicker, DateTime.Today.ToString("yyyy-MM-dd"));
+                    MarketData tNewMarketData = new MarketData(tTask.mTicker, tTask.mBbgTicker);
+                    mMarketData.Add(tUniqueId, tNewMarketData);
+                    tReturnValue.Add(tUniqueId, tNewMarketData);
                 }
             }
 
             mSession.Subscribe(tNewTask);
+            return tReturnValue;
         }
 
         public void UnsubscribeMktData(string argvBbgTicker)
@@ -604,9 +611,11 @@ namespace BloombergInterface
                 tNewColumn.SetOrdinal(0);
                 //mOutput.PrintDataTable(tExtractedValues);
 
-                if (tExtractedValues.Rows.Count > 0)
+                if (tExtractedValues.Rows.Count == 1)
                 {
+                    mMarketData[tMsg.CorrelationID.Value].UpdateMarketData(tExtractedValues);
                     InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.SubscriptionResponse);
+                    tArgs.mCorrelationId = tMsg.CorrelationID.Value;
                     tArgs.mData = tExtractedValues;
                     mBbgMsgEvent(this, tArgs);
                 }

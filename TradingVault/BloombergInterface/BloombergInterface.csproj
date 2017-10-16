@@ -46,6 +46,7 @@
     <Compile Include="ApiTask.cs" />
     <Compile Include="BloombergApi.cs" />
     <Compile Include="InterfaceEventArgs.cs" />
+    <Compile Include="MarketData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TickerConverter.cs" />
   </ItemGroup>
