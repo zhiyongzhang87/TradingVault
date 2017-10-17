@@ -17,6 +17,7 @@ namespace BloombergInterface
         public TickerConverter mTickerConverter;
         public event BbgEventHandler mBbgMsgEvent;
 
+        private int mNoOfThreadsForEventDispatcher;
         private object mLockCorrelationIdGenerator;
         private long mCurrentCorrelationId;
         private OutputHelper mOutput;
@@ -30,7 +31,6 @@ namespace BloombergInterface
         private Dictionary<long, MarketData> mMarketData;
         private Dictionary<string, string> mTradingDates;
         private List<string> mCorrelationID;
-        private double mMsgCounter;
         private string mLastIntradayTickTicker;
         private string[] mRequestResponseErrorAttributes;
         private string[] mIntradayBarResponseDefaultAttributes;
@@ -43,8 +43,9 @@ namespace BloombergInterface
         private Dictionary<long, ApiTaskRealtime> mSubscriptionByCorrelationId;
         private Dictionary<long, ApiTask> mOtherRequestByCorrelationId;
 
-        public BloombergApi()
+        public BloombergApi(int argvNoOfThreadsForEventDispatcher)
         {
+            mNoOfThreadsForEventDispatcher = argvNoOfThreadsForEventDispatcher;
             mLockCorrelationIdGenerator = new object();
             mCurrentCorrelationId = 0;
             mOutput = new OutputHelper("BloombergApi" + DateTime.Now.ToString("yyyyMMddHHmmss"));
@@ -54,7 +55,6 @@ namespace BloombergInterface
             mTradingDates = new Dictionary<string, string>();
             mMarketData = new Dictionary<long, MarketData>();
             mCorrelationID = new List<string>();
-            mMsgCounter = 0;
 
             mHistoricalDataRequestByCorrelationId = new Dictionary<long, ApiTaskHistoricalData>();
             mIntradayBarRequestByCorrelationId = new Dictionary<long, ApiTaskBar>();
@@ -121,11 +121,18 @@ namespace BloombergInterface
             // we use “localhost” as the host name and port 8194 as the default port.
             tSessionOptions.ServerHost = "localhost";
             tSessionOptions.ServerPort = 8194;
+            tSessionOptions.MaxEventQueueSize = mNoOfThreadsForEventDispatcher * 20;
+            tSessionOptions.SlowConsumerWarningHiWaterMark = 0.1f;
+            tSessionOptions.SlowConsumerWarningLoWaterMark = 0.01f * mNoOfThreadsForEventDispatcher;
+
+            //Create a EventDispatcher
+            EventDispatcher tEventDispatcher = new EventDispatcher(4);
+
             // Create a Session object using the sessionOptions
             try
             {
                 tResult = true;
-                mSession = new Session(tSessionOptions);
+                mSession = new Session(tSessionOptions, null, tEventDispatcher);
             }
             catch (Exception e)
             {
@@ -185,6 +192,7 @@ namespace BloombergInterface
             }
         }
 
+        #region Send request functions
         public void SendRequestForHistoricalData(List<ApiTaskHistoricalData> argvTaskCollection)
         {
             foreach (ApiTaskHistoricalData tTask in argvTaskCollection)
@@ -391,7 +399,9 @@ namespace BloombergInterface
                 }
             }
         }
+        #endregion
 
+        #region Process callback functions
         private void ProcessBbgEvent()
         {
             mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, ("Listening to event...")));
@@ -402,38 +412,58 @@ namespace BloombergInterface
                 Event eventObject = mSession.NextEvent(100);
                 if (eventObject.Count() > 0)
                 {
-                    mMsgCounter++;
-                    if (eventObject.Type == Event.EventType.PARTIAL_RESPONSE || eventObject.Type == Event.EventType.RESPONSE)
+                    switch (eventObject.Type)
                     {
-                        ProcessRequestResponse(eventObject);
+                        case Event.EventType.SUBSCRIPTION_DATA:
+                            ProcessSubscriptionData(eventObject);
+                            break;
+                        case Event.EventType.SESSION_STATUS:
+                            ProcessSessionStatusChange(eventObject);
+                            break;
+                        case Event.EventType.SERVICE_STATUS:
+                            ProcessSessionStatusChange(eventObject);
+                            break;
+                        case Event.EventType.SUBSCRIPTION_STATUS:
+                            ProcessSubscriptionStatus(eventObject);
+                            break;
+                        case Event.EventType.PARTIAL_RESPONSE:
+                            ProcessRequestResponse(eventObject);
+                            break;
+                        case Event.EventType.RESPONSE:
+                            ProcessRequestResponse(eventObject);
+                            break;
+                        case Event.EventType.ADMIN:
+                            ProcessAdminMessage(eventObject);
+                            break;
+                        default:
+                            ProcessUnknownEvent(eventObject);
+                            break;
                     }
-                    else if (eventObject.Type == Event.EventType.SESSION_STATUS)
-                    {
-                        ProcessSessionStatusChange(eventObject);
-                    }
-                    else if (eventObject.Type == Event.EventType.SERVICE_STATUS)
-                    {
-                        ProcessSessionStatusChange(eventObject);
-                    }
-                    else if (eventObject.Type == Event.EventType.SUBSCRIPTION_DATA)
-                    {
-                        ProcessSubscriptionData(eventObject);
-                    } 
-                    else if (eventObject.Type == Event.EventType.SUBSCRIPTION_STATUS)
-                    {
-                        ProcessSubscriptionStatus(eventObject);
-                    } 
-                    else
-                    {
-                        mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Print, "New event " + eventObject.Type.ToString()));
-                        // Loop over all of the messages in this Event
-                        foreach (Bloomberglp.Blpapi.Message msg in eventObject)
-                        {
-                            mBbgMsgEvent(this, new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Error, msg.ToString()));
-                        }
-                    } 
                 }
             } // end while not done
+        }
+
+        private void ProcessUnknownEvent(Bloomberglp.Blpapi.Event argvEvent)
+        {
+            InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Error);
+            tArgs.mMsg = "Unknown event " + argvEvent.Type.ToString();
+            // Loop over all of the messages in this Event
+            foreach (Bloomberglp.Blpapi.Message msg in argvEvent)
+            {
+                tArgs.mMsg += msg.ToString();
+            }
+            mBbgMsgEvent(this, tArgs);
+        }
+
+        private void ProcessAdminMessage(Bloomberglp.Blpapi.Event argvEvent)
+        {
+            InterfaceEventArgs tArgs = new InterfaceEventArgs(InterfaceEventArgs.xBbgMsgType.Error);
+            // Loop over all of the messages in this Event
+            foreach (Bloomberglp.Blpapi.Message msg in argvEvent)
+            {
+                tArgs.mMsg += msg.ToString();
+            }
+            mBbgMsgEvent(this, tArgs);
         }
 
         private void ProcessSessionStatusChange(Bloomberglp.Blpapi.Event argvEvent)
@@ -635,7 +665,9 @@ namespace BloombergInterface
             tRetData.mData = tExtractedValues;
             mBbgMsgEvent(this, tRetData);
         }
+        #endregion
 
+        #region Parse Bloomberg message function
         public System.Data.DataTable ExtractValueByName(Bloomberglp.Blpapi.Element argvElement, string[] argvNames)
         {
             System.Data.DataTable tReturnValue = new System.Data.DataTable();
@@ -727,11 +759,7 @@ namespace BloombergInterface
 
             return tReturnValue;
         }
-
-        public double GetMessageCount()
-        {
-            return mMsgCounter;
-        }
+        #endregion
 
         public void ShutDown()
         {

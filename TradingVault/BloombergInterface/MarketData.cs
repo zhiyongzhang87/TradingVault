@@ -202,6 +202,9 @@ namespace BloombergInterface
         //Return value indicates if data is changed
         public bool UpdateMarketData(System.Data.DataTable argvData)
         {
+            bool tBidIsChanged = false;
+            bool tAskIsChanged = false;
+            bool tLastTradeIsChanged = false;
             double tBid = this.NoValueDouble();
             double tBidSize = this.NoValueDouble();
             DateTime tBidUpdateTime = this.NoTime();
@@ -228,8 +231,7 @@ namespace BloombergInterface
                 {
                     tBidUpdateTime = DateTime.ParseExact(argvData.Rows[0]["LAST_UPDATE_BID_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
                 }
-
-                this.SetBid(tBid, tBidSize, tBidUpdateTime);
+                tBidIsChanged = true;
             }
 
             if ((argvData.Rows[0]["ASK"].ToString() + argvData.Rows[0]["ASK_SIZE"].ToString() + argvData.Rows[0]["LAST_UPDATE_ASK_RT"].ToString()).Length > 0)
@@ -248,8 +250,7 @@ namespace BloombergInterface
                 {
                     tAskUpdateTime = DateTime.ParseExact(argvData.Rows[0]["LAST_UPDATE_ASK_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
                 }
-
-                this.SetAsk(tAsk, tAskSize, tAskUpdateTime);
+                tAskIsChanged = true;
             }
 
             if ((argvData.Rows[0]["LAST_TRADE"].ToString() + argvData.Rows[0]["SIZE_LAST_TRADE"].ToString() + argvData.Rows[0]["TRADE_UPDATE_STAMP_RT"].ToString()).Length > 0)
@@ -268,8 +269,25 @@ namespace BloombergInterface
                 {
                     tLastTradeTime = DateTime.ParseExact(argvData.Rows[0]["TRADE_UPDATE_STAMP_RT"].ToString(), "yyyyMMdd HHmmss.fff", System.Globalization.CultureInfo.InvariantCulture);
                 }
+                tLastTradeIsChanged = true;
+            }
 
-                this.SetLastTrade(tLastTradePrice, tLastTradeSize, tLastTradeTime);
+            lock (mChangeValueLock)
+            {
+                if (tBidIsChanged)
+                {
+                    this.SetBid(tBid, tBidSize, tBidUpdateTime);
+                }
+
+                if (tAskIsChanged)
+                {
+                    this.SetAsk(tAsk, tAskSize, tAskUpdateTime);
+                }
+
+                if (tLastTradeIsChanged)
+                {
+                    this.SetLastTrade(tLastTradePrice, tLastTradeSize, tLastTradeTime);
+                }
             }
 
             return mIsDataChanged;

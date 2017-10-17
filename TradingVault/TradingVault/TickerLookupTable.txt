@@ -1,3 +1,6 @@
 ﻿ES:0:ES{MonthCode}{YearLastDigit} INDEX
+VX:0:UX{MonthCode}{YearLastDigit} INDEX
+ZB:0:US{MonthCode}{YearLastDigit} COMB COMDTY
+ZN:0:TY{MonthCode}{YearLastDigit} COMB COMDTY
 ZB3:100:3C{MonthCode}{YearLastDigit}{OptionType} {Strike} COMB COMDTY
 WB3:100:USW{MonthCode}{YearLastTwoDigit}{OptionType}3 {Strike} COMB COMDTY
