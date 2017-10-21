@@ -40,6 +40,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BlackScholes.cs" />
+    <Compile Include="ConstantValues.cs" />
     <Compile Include="OutputHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SQLClient.cs" />
